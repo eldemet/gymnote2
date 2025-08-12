@@ -1,0 +1,26 @@
+{
+  "name": "GymNote - Workout Tracker",
+  "short_name": "GymNote",
+  "description": "Local-first workout tracking app for machine-based exercises",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d0c22",
+  "theme_color": "#0d0c22",
+  "categories": ["health", "fitness", "lifestyle"],
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>GymNote</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#0d0c22">
+    
+    <!-- iOS -->
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#0d0c22',
+                            card: 'rgba(255, 255, 255, 0.05)',
+                            border: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Libraries -->
+    <script src="./assets/dexie.min.js"></script>
+    <script src="./assets/chart.umd.js"></script>
+    
+    <style>
+        /* Custom CSS for glass morphism and safe areas */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .safe-top {
+            padding-top: max(1rem, env(safe-area-inset-top));
+        }
+        
+        .safe-bottom {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        
+        .btn-press {
+            transform: scale(0.98);
+            transition: transform 0.1s ease;
+        }
+        
+        .toast {
+            position: fixed;
+            top: max(2rem, calc(env(safe-area-inset-top) + 1rem));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        /* Modal backdrop */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="dark bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen">
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="safe-top p-4">
+            <div class="flex items-center justify-between">
+                <h1 id="page-title" class="text-2xl font-bold">GymNote</h1>
+                <button id="back-btn" class="hidden p-2 rounded-lg glass" onclick="goBack()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-1 px-4 pb-20">
+            <!-- Machines Screen -->
+            <div id="machines-screen" class="screen">
+                <div class="mb-4">
+                    <input type="search" id="machine-search" placeholder="Search machines..." 
+                           class="w-full p-3 rounded-xl glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div id="machines-list" class="space-y-3"></div>
+                <div id="empty-machines" class="text-center py-12 hidden">
+                    <div class="text-6xl mb-4">🏋️</div>
+                    <h3 class="text-xl font-semibold mb-2">No machines yet</h3>
+                    <p class="text-gray-400">Add your first machine to start tracking workouts</p>
+                </div>
+            </div>
+
+            <!-- Machine Detail Screen -->
+            <div id="machine-detail-screen" class="screen hidden">
+                <div id="machine-detail" class="mb-6"></div>
+                <div id="machine-stats" class="mb-6"></div>
+                <div id="machine-chart-container" class="mb-6"></div>
+                <div id="machine-history" class="space-y-3"></div>
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="screen hidden">
+                <div class="space-y-4">
+                    <div class="glass rounded-xl p-4">
+                        <h3 class="text-lg font-semibold mb-3">Units</h3>
+                        <div class="flex space-x-2">
+                            <button id="unit-kg" class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium" onclick="setUnit('kg')">Kilograms</button>
+                            <button id="unit-lb" class="flex-1 p-3 rounded-lg glass text-gray-300" onclick="setUnit('lb')">Pounds</button>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-4">
+                        <h3 class="text-lg font-semibold mb-3">Data Management</h3>
+                        <div class="space-y-2">
+                            <button onclick="exportData()" class="w-full p-3 rounded-lg bg-green-600 text-white font-medium">
+                                Export Data
+                            </button>
+                            <button onclick="document.getElementById('import-file').click()" class="w-full p-3 rounded-lg bg-blue-600 text-white font-medium">
+                                Import Data
+                            </button>
+                            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                            <button onclick="clearAllData()" class="w-full p-3 rounded-lg bg-red-600 text-white font-medium">
+                                Clear All Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md safe-bottom">
+            <div class="flex justify-around items-center p-4 glass border-t border-white/10">
+                <button onclick="showScreen('machines')" id="nav-machines" class="flex flex-col items-center space-y-1 text-purple-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    <span class="text-xs">Machines</span>
+                </button>
+                <button onclick="showScreen('settings')" id="nav-settings" class="flex flex-col items-center space-y-1 text-gray-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span class="text-xs">Settings</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Floating Action Button -->
+        <button id="fab" onclick="showAddMachineModal()" 
+                class="fixed bottom-24 right-4 w-14 h-14 bg-purple-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-purple-700 transition-colors z-10">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast" class="toast glass rounded-lg px-4 py-2 text-white font-medium" role="status" aria-live="polite"></div>
+
+    <!-- Machine Modal -->
+    <div id="machine-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+            <div class="glass rounded-2xl p-6 w-full max-w-md">
+                <h3 id="machine-modal-title" class="text-xl font-semibold mb-4">Add Machine</h3>
+                <form id="machine-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Machine Name *</label>
+                        <input type="text" id="machine-label" required 
+                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Muscle Group</label>
+                        <input type="text" id="machine-muscle-group" 
+                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Photo</label>
+                        <input type="file" id="machine-photo" accept="image/*" 
+                               class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <div id="photo-preview" class="mt-2 hidden">
+                            <img id="preview-img" class="w-20 h-20 object-cover rounded-lg">
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 pt-4">
+                        <button type="button" onclick="closeModals()" 
+                                class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                        <button type="submit" 
+                                class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set Modal -->
+    <div id="set-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+            <div class="glass rounded-2xl p-6 w-full max-w-md">
+                <h3 id="set-modal-title" class="text-xl font-semibold mb-4">Log Set</h3>
+                <form id="set-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Date</label>
+                        <input type="date" id="set-date" required 
+                               class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Weight (<span id="weight-unit">kg</span>) *</label>
+                        <input type="number" id="set-weight" required step="0.1" min="0"
+                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Reps *</label>
+                        <input type="number" id="set-reps" required min="1" max="100"
+                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">RPE (1-10)</label>
+                        <input type="number" id="set-rpe" min="1" max="10" step="0.5"
+                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Notes</label>
+                        <textarea id="set-notes" rows="3" 
+                                  class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+                    </div>
+                    <div class="flex space-x-3 pt-4">
+                        <button type="button" onclick="closeModals()" 
+                                class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                        <button type="submit" 
+                                class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+            <div class="glass rounded-2xl p-6 w-full max-w-md">
+                <h3 class="text-xl font-semibold mb-4">Confirm Action</h3>
+                <p id="confirm-message" class="text-gray-300 mb-6"></p>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeModals()" 
+                            class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                    <button id="confirm-btn" type="button" 
+                            class="flex-1 p-3 rounded-lg bg-red-600 text-white font-medium">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="./app.js"></script>
+</body>
+</html>
