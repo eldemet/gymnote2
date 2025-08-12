@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>GymNote</title>
-    
+
     <!-- PWA -->
     <link rel="manifest" href="./manifest.webmanifest">
     <meta name="theme-color" content="#0d0c22">
-    
+
     <!-- iOS -->
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
+
     <!-- Styles -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -32,17 +34,24 @@
             }
         }
     </script>
-    
+
     <!-- Libraries -->
     <script src="./assets/dexie.min.js"></script>
     <script src="./assets/chart.umd.js"></script>
-    
+
     <style>
+        /* Global theme */
+        
+        body {
+            font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: radial-gradient(1200px 600px at 110% -20%, rgba(139, 92, 246, 0.12), transparent 60%), radial-gradient(1000px 500px at -10% 120%, rgba(236, 72, 153, 0.10), transparent 60%), #000;
+        }
         /* Custom CSS for glass morphism and safe areas */
+        
         .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         
         .safe-top {
@@ -71,15 +80,52 @@
         .toast.show {
             opacity: 1;
         }
-        
         /* Modal backdrop */
+        
         .modal-backdrop {
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(10px);
+            overscroll-behavior: contain;
+            /* prevent scroll chaining to body */
+        }
+        /* Buttons */
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            color: #fff;
+            box-shadow: 0 8px 30px rgba(139, 92, 246, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+            transition: transform 0.08s ease, filter 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 10px 36px rgba(139, 92, 246, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+        }
+        
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+        /* CTA button (Add Machine / Log Set) */
+        
+        .btn-cta {
+            background: linear-gradient(135deg, #fde047 0%, #f59e0b 100%);
+            color: #0a0a0a;
+            box-shadow: 0 10px 40px rgba(245, 158, 11, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+            transition: transform 0.08s ease, filter 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .btn-cta:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 14px 48px rgba(245, 158, 11, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+        }
+        
+        .btn-cta:active {
+            transform: translateY(1px);
         }
     </style>
 </head>
-<body class="dark bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white min-h-screen">
+
+<body class="dark text-white min-h-screen">
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
         <!-- Header -->
         <header class="safe-top p-4">
@@ -98,14 +144,13 @@
             <!-- Machines Screen -->
             <div id="machines-screen" class="screen">
                 <div class="mb-4">
-                    <input type="search" id="machine-search" placeholder="Search machines..." 
-                           class="w-full p-3 rounded-xl glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                    <input type="search" id="machine-search" placeholder="Search machines..." class="w-full p-3 rounded-xl glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                 </div>
                 <div id="machines-list" class="space-y-3"></div>
                 <div id="empty-machines" class="text-center py-12 hidden">
                     <div class="text-6xl mb-4">🏋️</div>
                     <h3 class="text-xl font-semibold mb-2">No machines yet</h3>
-                    <p class="text-gray-400">Add your first machine to start tracking workouts</p>
+                    <p class="text-white/60">Add your first machine to start tracking workouts</p>
                 </div>
             </div>
 
@@ -123,7 +168,7 @@
                     <div class="glass rounded-xl p-4">
                         <h3 class="text-lg font-semibold mb-3">Units</h3>
                         <div class="flex space-x-2">
-                            <button id="unit-kg" class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium" onclick="setUnit('kg')">Kilograms</button>
+                            <button id="unit-kg" class="flex-1 p-3 rounded-lg btn-primary text-white font-medium" onclick="setUnit('kg')">Kilograms</button>
                             <button id="unit-lb" class="flex-1 p-3 rounded-lg glass text-gray-300" onclick="setUnit('lb')">Pounds</button>
                         </div>
                     </div>
@@ -150,13 +195,14 @@
         <!-- Bottom Navigation -->
         <nav class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md safe-bottom">
             <div class="flex justify-around items-center p-4 glass border-t border-white/10">
-                <button onclick="showScreen('machines')" id="nav-machines" class="flex flex-col items-center space-y-1 text-purple-400">
+                <button onclick="showScreen('machines')" id="nav-machines" class="flex flex-col items-center space-y-1">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                     </svg>
                     <span class="text-xs">Machines</span>
                 </button>
-                <button onclick="showScreen('settings')" id="nav-settings" class="flex flex-col items-center space-y-1 text-gray-400">
+                <button id="nav-action" onclick="showAddMachineModal()" class="w-36 px-4 py-2 rounded-lg btn-cta text-black font-semibold">Add Machine</button>
+                <button onclick="showScreen('settings')" id="nav-settings" class="flex flex-col items-center space-y-1">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -166,47 +212,35 @@
             </div>
         </nav>
 
-        <!-- Floating Action Button -->
-        <button id="fab" onclick="showAddMachineModal()" 
-                class="fixed bottom-24 right-4 w-14 h-14 bg-purple-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-purple-700 transition-colors z-10">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-        </button>
     </div>
 
     <!-- Toast Container -->
     <div id="toast" class="toast glass rounded-lg px-4 py-2 text-white font-medium" role="status" aria-live="polite"></div>
 
     <!-- Machine Modal -->
-    <div id="machine-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
-        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+    <div id="machine-modal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-[100dvh] p-4" onclick="event.stopPropagation()">
             <div class="glass rounded-2xl p-6 w-full max-w-md">
                 <h3 id="machine-modal-title" class="text-xl font-semibold mb-4">Add Machine</h3>
                 <form id="machine-form" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Machine Name *</label>
-                        <input type="text" id="machine-label" required 
-                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="text" id="machine-label" required class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Muscle Group</label>
-                        <input type="text" id="machine-muscle-group" 
-                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="text" id="machine-muscle-group" class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Photo</label>
-                        <input type="file" id="machine-photo" accept="image/*" 
-                               class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <label id="machine-photo-label" class="block text-sm font-medium mb-2">Photo</label>
+                        <input type="file" id="machine-photo" accept="image/*" capture="environment" class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
                         <div id="photo-preview" class="mt-2 hidden">
                             <img id="preview-img" class="w-20 h-20 object-cover rounded-lg">
                         </div>
                     </div>
                     <div class="flex space-x-3 pt-4">
-                        <button type="button" onclick="closeModals()" 
-                                class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
-                        <button type="submit" 
-                                class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium">Save</button>
+                        <button type="button" onclick="closeModals()" class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                        <button type="submit" class="flex-1 p-3 rounded-lg btn-primary text-white font-medium">Save</button>
                     </div>
                 </form>
             </div>
@@ -214,41 +248,34 @@
     </div>
 
     <!-- Set Modal -->
-    <div id="set-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
-        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+    <div id="set-modal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-[100dvh] p-4" onclick="event.stopPropagation()">
             <div class="glass rounded-2xl p-6 w-full max-w-md">
                 <h3 id="set-modal-title" class="text-xl font-semibold mb-4">Log Set</h3>
                 <form id="set-form" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Date</label>
-                        <input type="date" id="set-date" required 
-                               class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="date" id="set-date" required class="w-full p-3 rounded-lg glass text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Weight (<span id="weight-unit">kg</span>) *</label>
-                        <input type="number" id="set-weight" required step="0.1" min="0"
-                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="number" id="set-weight" required step="0.1" min="0" class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Reps *</label>
-                        <input type="number" id="set-reps" required min="1" max="100"
-                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="number" id="set-reps" required min="1" max="100" class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">RPE (1-10)</label>
-                        <input type="number" id="set-rpe" min="1" max="10" step="0.5"
-                               class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
+                        <input type="number" id="set-rpe" min="1" max="10" step="0.5" class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Notes</label>
-                        <textarea id="set-notes" rows="3" 
-                                  class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
+                        <textarea id="set-notes" rows="3" class="w-full p-3 rounded-lg glass placeholder-gray-400 text-white border-0 focus:ring-2 focus:ring-purple-500 resize-none"></textarea>
                     </div>
                     <div class="flex space-x-3 pt-4">
-                        <button type="button" onclick="closeModals()" 
-                                class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
-                        <button type="submit" 
-                                class="flex-1 p-3 rounded-lg bg-purple-600 text-white font-medium">Save</button>
+                        <button type="button" onclick="closeModals()" class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                        <button type="submit" class="flex-1 p-3 rounded-lg btn-primary text-white font-medium">Save</button>
                     </div>
                 </form>
             </div>
@@ -256,16 +283,14 @@
     </div>
 
     <!-- Confirmation Modal -->
-    <div id="confirm-modal" class="fixed inset-0 z-50 hidden modal-backdrop" onclick="closeModals(event)">
-        <div class="flex items-center justify-center min-h-screen p-4" onclick="event.stopPropagation()">
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden modal-backdrop overflow-y-auto" onclick="closeModals(event)">
+        <div class="flex items-center justify-center min-h-[100dvh] p-4" onclick="event.stopPropagation()">
             <div class="glass rounded-2xl p-6 w-full max-w-md">
                 <h3 class="text-xl font-semibold mb-4">Confirm Action</h3>
                 <p id="confirm-message" class="text-gray-300 mb-6"></p>
                 <div class="flex space-x-3">
-                    <button type="button" onclick="closeModals()" 
-                            class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
-                    <button id="confirm-btn" type="button" 
-                            class="flex-1 p-3 rounded-lg bg-red-600 text-white font-medium">Confirm</button>
+                    <button type="button" onclick="closeModals()" class="flex-1 p-3 rounded-lg glass text-gray-300 font-medium">Cancel</button>
+                    <button id="confirm-btn" type="button" class="flex-1 p-3 rounded-lg bg-red-600 text-white font-medium">Confirm</button>
                 </div>
             </div>
         </div>
@@ -274,4 +299,5 @@
     <!-- App Scripts -->
     <script src="./app.js"></script>
 </body>
+
 </html>

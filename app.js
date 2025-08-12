@@ -3,10 +3,10 @@ const db = new Dexie('GymNoteDB');
 
 // Define schema with versioning
 db.version(1).stores({
-  machines: '++id, label, muscleGroup, imageFull, imageThumb, createdAt, updatedAt',
-  sessions: '++id, date',
-  sets: '++id, sessionId, machineId, order, weightKg, reps, rpe, notes',
-  settings: 'id, unit, theme, lastBackupAt'
+    machines: '++id, label, muscleGroup, imageFull, imageThumb, createdAt, updatedAt',
+    sessions: '++id, date',
+    sets: '++id, sessionId, machineId, order, weightKg, reps, rpe, notes',
+    settings: 'id, unit, theme, lastBackupAt'
 });
 
 // Global state
@@ -18,216 +18,232 @@ let appSettings = { unit: 'kg', theme: 'dark' };
 let machineChart = null;
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', async () => {
-  await initDatabase();
-  await loadSettings();
-  registerServiceWorker();
-  setupEventListeners();
-  showScreen('machines');
+document.addEventListener('DOMContentLoaded', async() => {
+    await initDatabase();
+    await loadSettings();
+    registerServiceWorker();
+    setupEventListeners();
+    showScreen('machines');
 });
 
 // Database initialization
 async function initDatabase() {
-  try {
-    await db.open();
-    
-    // Ensure settings exist
-    const settings = await db.settings.get('app');
-    if (!settings) {
-      await db.settings.put({
-        id: 'app',
-        unit: 'kg',
-        theme: 'dark',
-        lastBackupAt: null
-      });
+    try {
+        await db.open();
+
+        // Ensure settings exist
+        const settings = await db.settings.get('app');
+        if (!settings) {
+            await db.settings.put({
+                id: 'app',
+                unit: 'kg',
+                theme: 'dark',
+                lastBackupAt: null
+            });
+        }
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+        showToast('Database error. Please refresh the page.', 'error');
     }
-  } catch (error) {
-    console.error('Database initialization failed:', error);
-    showToast('Database error. Please refresh the page.', 'error');
-  }
 }
 
 // Load settings
 async function loadSettings() {
-  try {
-    const settings = await db.settings.get('app');
-    if (settings) {
-      appSettings = settings;
-      updateUnitButtons();
-      updateWeightUnits();
+    try {
+        const settings = await db.settings.get('app');
+        if (settings) {
+            appSettings = settings;
+            updateUnitButtons();
+            updateWeightUnits();
+        }
+    } catch (error) {
+        console.error('Failed to load settings:', error);
     }
-  } catch (error) {
-    console.error('Failed to load settings:', error);
-  }
 }
 
 // Service Worker registration
 async function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js');
-      console.log('ServiceWorker registered:', registration);
-      
-      // Listen for updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateAvailable();
-          }
-        });
-      });
-    } catch (error) {
-      console.error('ServiceWorker registration failed:', error);
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('./service-worker.js');
+            console.log('ServiceWorker registered:', registration);
+
+            // Listen for updates
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        showUpdateAvailable();
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('ServiceWorker registration failed:', error);
+        }
     }
-  }
 }
 
 // Show update notification
 function showUpdateAvailable() {
-  const toast = document.getElementById('toast');
-  toast.innerHTML = `
+    const toast = document.getElementById('toast');
+    toast.innerHTML = `
     <div class="flex items-center justify-between">
       <span>New version available</span>
-      <button onclick="refreshApp()" class="ml-3 px-3 py-1 bg-purple-600 rounded text-sm">
+      <button onclick="refreshApp()" class="ml-3 px-3 py-1 btn-primary rounded text-sm">
         Update
       </button>
     </div>
   `;
-  toast.classList.add('show');
+    toast.classList.add('show');
 }
 
 // Refresh app to use new version
 function refreshApp() {
-  if (navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-  }
-  window.location.reload();
+    if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    }
+    window.location.reload();
 }
 
 // Event listeners setup
 function setupEventListeners() {
-  // Machine search
-  document.getElementById('machine-search').addEventListener('input', (e) => {
-    filterMachines(e.target.value);
-  });
-  
-  // Machine form
-  document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
-  
-  // Set form
-  document.getElementById('set-form').addEventListener('submit', handleSetSubmit);
-  
-  // Photo preview
-  document.getElementById('machine-photo').addEventListener('change', previewPhoto);
-  
-  // Keyboard navigation
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeModals();
+    // Machine search
+    document.getElementById('machine-search').addEventListener('input', (e) => {
+        filterMachines(e.target.value);
+    });
+
+    // Machine form
+    document.getElementById('machine-form').addEventListener('submit', handleMachineSubmit);
+
+    // Set form
+    document.getElementById('set-form').addEventListener('submit', handleSetSubmit);
+
+    // Photo preview
+    document.getElementById('machine-photo').addEventListener('change', previewPhoto);
+
+    // Enhance camera UX on mobile
+    const photoInput = document.getElementById('machine-photo');
+    const photoLabel = document.getElementById('machine-photo-label');
+    if (photoInput && photoLabel) {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            // Ensure camera preferred and hint the user
+            photoInput.setAttribute('accept', 'image/*;capture=camera');
+            photoInput.setAttribute('capture', 'environment');
+            photoLabel.textContent = 'Take Photo';
+        }
     }
-  });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModals();
+        }
+    });
 }
 
 // Screen navigation
 function showScreen(screenName) {
-  // Hide all screens
-  document.querySelectorAll('.screen').forEach(screen => {
-    screen.classList.add('hidden');
-  });
-  
-  // Update navigation
-  document.querySelectorAll('[id^="nav-"]').forEach(nav => {
-    nav.classList.remove('text-purple-400');
-    nav.classList.add('text-gray-400');
-  });
-  
-  currentScreen = screenName;
-  
-  switch (screenName) {
-    case 'machines':
-      document.getElementById('machines-screen').classList.remove('hidden');
-      document.getElementById('nav-machines').classList.add('text-purple-400');
-      document.getElementById('nav-machines').classList.remove('text-gray-400');
-      document.getElementById('page-title').textContent = 'GymNote';
-      document.getElementById('back-btn').classList.add('hidden');
-      document.getElementById('fab').onclick = () => showAddMachineModal();
-      document.getElementById('fab').innerHTML = `
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-      `;
-      loadMachines();
-      break;
-      
-    case 'machine-detail':
-      document.getElementById('machine-detail-screen').classList.remove('hidden');
-      document.getElementById('page-title').textContent = currentMachine?.label || 'Machine';
-      document.getElementById('back-btn').classList.remove('hidden');
-      document.getElementById('fab').onclick = () => showAddSetModal();
-      document.getElementById('fab').innerHTML = `
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-      `;
-      loadMachineDetail();
-      break;
-      
-    case 'settings':
-      document.getElementById('settings-screen').classList.remove('hidden');
-      document.getElementById('nav-settings').classList.add('text-purple-400');
-      document.getElementById('nav-settings').classList.remove('text-gray-400');
-      document.getElementById('page-title').textContent = 'Settings';
-      document.getElementById('back-btn').classList.add('hidden');
-      document.getElementById('fab').style.display = 'none';
-      break;
-      
-    default:
-      showScreen('machines');
-  }
-  
-  if (screenName !== 'settings') {
-    document.getElementById('fab').style.display = 'flex';
-  }
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+    });
+
+    // Update navigation (only tabs, exclude action button)
+    document.querySelectorAll('#nav-machines, #nav-settings').forEach(nav => {
+        nav.classList.remove('text-purple-400');
+        nav.classList.add('text-white/50');
+    });
+
+    currentScreen = screenName;
+
+    switch (screenName) {
+        case 'machines':
+            document.getElementById('machines-screen').classList.remove('hidden');
+            document.getElementById('page-title').textContent = 'GymNote';
+            document.getElementById('back-btn').classList.add('hidden');
+            const actionBtn = document.getElementById('nav-action');
+            if (actionBtn) {
+                actionBtn.textContent = 'Add Machine';
+                actionBtn.onclick = () => showAddMachineModal();
+                actionBtn.classList.remove('hidden');
+            }
+            loadMachines();
+            break;
+
+        case 'machine-detail':
+            document.getElementById('machine-detail-screen').classList.remove('hidden');
+            document.getElementById('page-title').textContent = (currentMachine && currentMachine.label) ? currentMachine.label : 'Machine';
+            document.getElementById('back-btn').classList.remove('hidden');
+            const actionBtn2 = document.getElementById('nav-action');
+            if (actionBtn2) {
+                actionBtn2.textContent = 'Log Set';
+                actionBtn2.onclick = () => showAddSetModal();
+                actionBtn2.classList.remove('hidden');
+                actionBtn2.classList.add('btn-cta');
+            }
+            loadMachineDetail();
+            break;
+
+        case 'settings':
+            document.getElementById('settings-screen').classList.remove('hidden');
+            document.getElementById('nav-settings').classList.add('text-purple-400');
+            document.getElementById('nav-settings').classList.remove('text-white/50');
+            document.getElementById('page-title').textContent = 'Settings';
+            document.getElementById('back-btn').classList.add('hidden');
+            const actionBtn3 = document.getElementById('nav-action');
+            if (actionBtn3) {
+                actionBtn3.classList.add('hidden');
+            }
+            break;
+
+        default:
+            showScreen('machines');
+    }
+
+    // nothing to do for action button here; handled per-case
 }
 
 function goBack() {
-  if (currentScreen === 'machine-detail') {
-    showScreen('machines');
-  }
+    if (currentScreen === 'machine-detail') {
+        showScreen('machines');
+    }
 }
 
 // Machine management
 async function loadMachines() {
-  try {
-    const machines = await db.machines.orderBy('label').toArray();
-    const machinesList = document.getElementById('machines-list');
-    const emptyState = document.getElementById('empty-machines');
-    
-    if (machines.length === 0) {
-      machinesList.innerHTML = '';
-      emptyState.classList.remove('hidden');
-      return;
-    }
-    
-    emptyState.classList.add('hidden');
-    machinesList.innerHTML = machines.map(machine => `
-      <div class="glass rounded-xl p-4 cursor-pointer hover:bg-white/10 transition-colors" 
-           onclick="viewMachine(${machine.id})">
-        <div class="flex items-center space-x-4">
-          ${machine.imageThumb ? 
-            `<img src="${URL.createObjectURL(machine.imageThumb)}" alt="${machine.label}" class="w-12 h-12 object-cover rounded-lg">` :
-            `<div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
-               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+    try {
+        const machines = await db.machines.orderBy('label').toArray();
+        const machinesList = document.getElementById('machines-list');
+        const emptyState = document.getElementById('empty-machines');
+
+        if (machines.length === 0) {
+            machinesList.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        machinesList.innerHTML = machines.map(machine => `
+      <div class="glass rounded-xl p-4 cursor-pointer hover:bg-white/10 transition-colors" onclick="viewMachine(${machine.id})">
+        ${(machine.imageFull || machine.imageThumb) ? 
+          `<div class=\"overflow-hidden -mx-4 -mt-4 mb-3 rounded-t-xl border-b border-white/10\">
+             <img src=\"${URL.createObjectURL(machine.imageFull || machine.imageThumb)}\" alt=\"${machine.label}\" class=\"w-full h-40 object-cover\">
+           </div>` :
+          `<div class=\"overflow-hidden -mx-4 -mt-4 mb-3 rounded-t-xl border-b border-white/10\" style=\"background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);\">
+             <div class=\"w-full h-40 flex items-center justify-center\">
+               <svg class=\"w-8 h-8 text-white/80\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"> 
+                 <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10\"></path>
                </svg>
-             </div>`
-          }
-          <div class="flex-1">
+             </div>
+           </div>`
+        }
+        <div class="flex items-center justify-between">
+          <div class="flex-1 pr-3">
             <h3 class="font-semibold">${machine.label}</h3>
-            ${machine.muscleGroup ? `<p class="text-sm text-gray-400">${machine.muscleGroup}</p>` : ''}
+            ${machine.muscleGroup ? `<p class=\"text-sm text-white/60\">${machine.muscleGroup}</p>` : ''}
           </div>
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
           </svg>
         </div>
@@ -269,34 +285,35 @@ async function loadMachineDetail() {
     const machineDetail = document.getElementById('machine-detail');
     machineDetail.innerHTML = `
       <div class="glass rounded-xl p-4">
-        <div class="flex items-center justify-between mb-4">
+        <div class="overflow-hidden -mx-4 -mt-4 mb-4 rounded-t-xl border-b border-white/10">
           ${currentMachine.imageFull ? 
-            `<img src="${URL.createObjectURL(currentMachine.imageFull)}" alt="${currentMachine.label}" class="w-20 h-20 object-cover rounded-lg">` :
-            `<div class="w-20 h-20 bg-purple-600 rounded-lg flex items-center justify-center">
-               <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            `<img src="${URL.createObjectURL(currentMachine.imageFull)}" alt="${currentMachine.label}" class="w-full h-48 object-cover">` :
+            `<div class="w-full h-48 flex items-center justify-center" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">
+               <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                </svg>
              </div>`
           }
-          <div class="flex space-x-2">
-            <button onclick="showEditMachineModal()" class="p-2 glass rounded-lg">
+        </div>
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">${currentMachine.label}</h2>
+            ${currentMachine.muscleGroup ? `<p class="text-white/60">${currentMachine.muscleGroup}</p>` : ''}
+          </div>
+          <div class="flex space-x-2 ml-3">
+            <button onclick="showEditMachineModal()" class="p-2 glass rounded-lg border border-white/10">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
               </svg>
             </button>
-            <button onclick="confirmDeleteMachine()" class="p-2 bg-red-600 rounded-lg">
+            <button onclick="confirmDeleteMachine()" class="p-2 bg-red-600 rounded-lg border border-white/10">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
               </svg>
             </button>
           </div>
         </div>
-        <div>
-          <h2 class="text-xl font-semibold">${currentMachine.label}</h2>
-          ${currentMachine.muscleGroup ? `<p class="text-gray-400">${currentMachine.muscleGroup}</p>` : ''}
-        </div>
-      </div>
-    `;
+      </div>`;
     
     // Load stats and chart
     await loadMachineStats();
@@ -317,7 +334,7 @@ async function loadMachineStats() {
     if (sets.length === 0) {
       document.getElementById('machine-stats').innerHTML = `
         <div class="glass rounded-xl p-4 text-center">
-          <p class="text-gray-400">No sets recorded yet</p>
+          <p class="text-white/60">No sets recorded yet</p>
         </div>
       `;
       return;
@@ -348,15 +365,15 @@ async function loadMachineStats() {
         <div class="grid grid-cols-3 gap-4 text-center">
           <div>
             <div class="text-2xl font-bold text-purple-400">${displayWeight.toFixed(1)}</div>
-            <div class="text-sm text-gray-400">Best e1RM (${appSettings.unit})</div>
+            <div class="text-sm text-white/60">Best e1RM (${appSettings.unit})</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-green-400">${sets.length}</div>
-            <div class="text-sm text-gray-400">Total Sets</div>
+            <div class="text-sm text-white/60">Total Sets</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-blue-400">${prSession ? formatDate(prSession.date) : 'N/A'}</div>
-            <div class="text-sm text-gray-400">PR Date</div>
+            <div class="text-sm text-white/60">PR Date</div>
           </div>
         </div>
       </div>
@@ -379,10 +396,12 @@ async function loadMachineChart() {
             <button onclick="setChartRange(7)" class="chart-range px-3 py-1 rounded-lg glass text-sm">7d</button>
             <button onclick="setChartRange(30)" class="chart-range px-3 py-1 rounded-lg glass text-sm">30d</button>
             <button onclick="setChartRange(90)" class="chart-range px-3 py-1 rounded-lg glass text-sm">90d</button>
-            <button onclick="setChartRange(null)" class="chart-range px-3 py-1 rounded-lg bg-purple-600 text-sm">All</button>
+            <button onclick="setChartRange(null)" class="chart-range px-3 py-1 rounded-lg btn-primary text-sm">All</button>
           </div>
         </div>
-        <canvas id="machine-chart" width="400" height="200"></canvas>
+        <div class="relative h-64">
+          <canvas id="machine-chart"></canvas>
+        </div>
       </div>
     `;
     
@@ -541,7 +560,8 @@ async function renderMachineChart(days = null) {
         interaction: {
           mode: 'index',
           intersect: false
-        }
+        },
+        animation: false
       }
     });
   } catch (error) {
@@ -552,12 +572,12 @@ async function renderMachineChart(days = null) {
 function setChartRange(days) {
   // Update button styles
   document.querySelectorAll('.chart-range').forEach(btn => {
-    btn.classList.remove('bg-purple-600');
+  btn.classList.remove('bg-purple-600', 'btn-primary');
     btn.classList.add('glass');
   });
   
   event.target.classList.remove('glass');
-  event.target.classList.add('bg-purple-600');
+  event.target.classList.add('btn-primary');
   
   renderMachineChart(days);
 }
@@ -575,8 +595,8 @@ async function loadMachineHistory() {
     if (sets.length === 0) {
       historyContainer.innerHTML = `
         <div class="glass rounded-xl p-4 text-center">
-          <p class="text-gray-400">No sets recorded yet</p>
-          <button onclick="showAddSetModal()" class="mt-3 px-4 py-2 bg-purple-600 rounded-lg">
+          <p class="text-white/60">No sets recorded yet</p>
+          <button onclick="showAddSetModal()" class="mt-3 px-4 py-2 btn-primary rounded-lg">
             Log Your First Set
           </button>
         </div>
@@ -621,13 +641,13 @@ async function loadMachineHistory() {
                           ${weightDisplay.toFixed(1)} ${appSettings.unit} × ${set.reps}
                           ${set.rpe ? ` @ RPE ${set.rpe}` : ''}
                         </div>
-                        <div class="text-sm text-gray-400">
+                         <div class="text-sm text-white/60">
                           e1RM: ${e1rmDisplay.toFixed(1)} ${appSettings.unit}
                         </div>
                         ${set.notes ? `<div class="text-sm text-gray-300 mt-1">${set.notes}</div>` : ''}
                       </div>
                       <div class="flex space-x-2 ml-3">
-                        <button onclick="showEditSetModal(${set.id})" class="p-1 text-gray-400 hover:text-white">
+                        <button onclick="showEditSetModal(${set.id})" class="p-1 text-white/50 hover:text-white">
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                           </svg>
@@ -659,6 +679,7 @@ function showAddMachineModal() {
   document.getElementById('machine-form').reset();
   document.getElementById('photo-preview').classList.add('hidden');
   document.getElementById('machine-modal').classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
 }
 
 function showEditMachineModal() {
@@ -679,6 +700,7 @@ function showEditMachineModal() {
   }
   
   document.getElementById('machine-modal').classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
 }
 
 function showAddSetModal() {
@@ -689,6 +711,12 @@ function showAddSetModal() {
   document.getElementById('set-form').reset();
   document.getElementById('set-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('set-modal').classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+  // Ensure modal gets focus for better mobile keyboard behavior
+  setTimeout(() => {
+    const firstInput = document.getElementById('set-weight');
+    if (firstInput) { firstInput.focus(); }
+  }, 50);
 }
 
 async function showEditSetModal(setId) {
@@ -707,6 +735,11 @@ async function showEditSetModal(setId) {
     document.getElementById('set-notes').value = set.notes || '';
     
     document.getElementById('set-modal').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  setTimeout(() => {
+    const firstInput = document.getElementById('set-weight');
+    if (firstInput) { firstInput.focus(); }
+  }, 50);
   } catch (error) {
     console.error('Failed to load set for editing:', error);
     showToast('Failed to load set', 'error');
@@ -722,6 +755,9 @@ function closeModals() {
   document.querySelectorAll('img[src^="blob:"]').forEach(img => {
     URL.revokeObjectURL(img.src);
   });
+  
+  // Restore background scroll
+  document.body.classList.remove('overflow-hidden');
 }
 
 // Form handlers
@@ -829,10 +865,11 @@ async function handleSetSubmit(e) {
       });
       showToast('Set updated successfully');
     } else {
-      // Calculate order for new set
+      // Calculate order for new set (no compound index)
       const existingSets = await db.sets
-        .where('[sessionId+machineId]')
-        .equals([session.id, currentMachine.id])
+        .where('sessionId')
+        .equals(session.id)
+        .and(s => s.machineId === currentMachine.id)
         .toArray();
       const order = existingSets.length + 1;
       
@@ -971,6 +1008,7 @@ function showConfirm(message, onConfirm) {
     onConfirm();
   };
   document.getElementById('confirm-modal').classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
 }
 
 // Settings management
@@ -979,15 +1017,15 @@ function updateUnitButtons() {
   const lbBtn = document.getElementById('unit-lb');
   
   if (appSettings.unit === 'kg') {
-    kgBtn.classList.add('bg-purple-600', 'text-white');
+    kgBtn.classList.add('btn-primary', 'text-white');
     kgBtn.classList.remove('glass', 'text-gray-300');
     lbBtn.classList.add('glass', 'text-gray-300');
-    lbBtn.classList.remove('bg-purple-600', 'text-white');
+    lbBtn.classList.remove('btn-primary', 'text-white');
   } else {
-    lbBtn.classList.add('bg-purple-600', 'text-white');
+    lbBtn.classList.add('btn-primary', 'text-white');
     lbBtn.classList.remove('glass', 'text-gray-300');
     kgBtn.classList.add('glass', 'text-gray-300');
-    kgBtn.classList.remove('bg-purple-600', 'text-white');
+    kgBtn.classList.remove('btn-primary', 'text-white');
   }
 }
 
